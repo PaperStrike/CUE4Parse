@@ -84,8 +84,9 @@ namespace CUE4Parse.FileProvider
         /// </summary>
         /// <param name="path">The path of the game file</param>
         /// <param name="file">The file if it was found; otherwise the default value</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>true if the file could be found; false otherwise</returns>
-        public bool TryFindGameFile(string path, out GameFile file);
+        public bool TryFindGameFile(string path, out GameFile file, string? pakName = null);
 
         /// <summary>
         /// Attempts to bring the passed path into the correct format.
@@ -100,63 +101,72 @@ namespace CUE4Parse.FileProvider
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The asset data</returns>
-        public byte[] SaveAsset(string path);
+        public byte[] SaveAsset(string path, string? pakName = null);
         /// <summary>
         /// Attempts to load asset data of the file with the passed path into byte[]. 
         /// </summary>
         /// <param name="path">The file path</param>
         /// <param name="data">The asset data if it was successfully loaded; otherwise default</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>true if the asset could be loaded; false otherwise</returns>
-        public bool TrySaveAsset(string path, out byte[] data);
+        public bool TrySaveAsset(string path, out byte[] data, string? pakName = null);
         /// <summary>
         /// Asynchronously loads asset data of the file with the passed path into byte[]. 
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The asset data</returns>
-        public Task<byte[]> SaveAssetAsync(string path);
+        public Task<byte[]> SaveAssetAsync(string path, string? pakName = null);
         /// <summary>
         /// Asynchronously attempts to load asset data of the file with the passed path into byte[]. 
         /// </summary>
         /// <param name="path">The file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The asset data if it was successfully loaded; null otherwise</returns>
-        public Task<byte[]?> TrySaveAssetAsync(string path);
-        
+        public Task<byte[]?> TrySaveAssetAsync(string path, string? pakName = null);
+
         /// <summary>
         /// Creates a reader for the file with the passed path. 
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The reader</returns>
-        public FArchive CreateReader(string path);
+        public FArchive CreateReader(string path, string? pakName = null);
         /// <summary>
         /// Attempts to create a for the file with the passed path. 
         /// </summary>
         /// <param name="path">The file path</param>
         /// <param name="reader">The reader if it was successfully created; otherwise default</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>true if the reader could be created; false otherwise</returns>
-        public bool TryCreateReader(string path, out FArchive reader);
+        public bool TryCreateReader(string path, out FArchive reader, string? pakName = null);
         /// <summary>
         /// Asynchronously creates a reader for the file with the passed path. 
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The reader</returns>
-        public Task<FArchive> CreateReaderAsync(string path);
+        public Task<FArchive> CreateReaderAsync(string path, string? pakName = null);
         /// <summary>
         /// Asynchronously attempts to create a reader for the file with the passed path. 
         /// </summary>
         /// <param name="path">The file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The reader if it could be created; null otherwise</returns>
-        public Task<FArchive?> TryCreateReaderAsync(string path);
+        public Task<FArchive?> TryCreateReaderAsync(string path, string? pakName = null);
         /// <summary>
         /// Loads and parses a Package at the passed path. 
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The package file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The parsed package content</returns>
-        public IPackage LoadPackage(string path);
+        public IPackage LoadPackage(string path, string? pakName = null);
         /// <summary>
         /// Loads and parses a Package from the passed file. 
         /// Can throw various exceptions
@@ -176,8 +186,9 @@ namespace CUE4Parse.FileProvider
         /// </summary>
         /// <param name="path">The package file path</param>
         /// <param name="package">The parsed package content if it could be parsed; default otherwise</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>true if the package could be parsed; false otherwise</returns>
-        public bool TryLoadPackage(string path, out IPackage package);
+        public bool TryLoadPackage(string path, out IPackage package, string? pakName = null);
         /// <summary>
         /// Attempts to loads and parse a Package from the passed file. 
         /// </summary>
@@ -197,8 +208,9 @@ namespace CUE4Parse.FileProvider
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The package file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The parsed package content</returns>
-        public Task<IPackage> LoadPackageAsync(string path);
+        public Task<IPackage> LoadPackageAsync(string path, string? pakName = null);
         /// <summary>
         /// Asynchronously loads and parses a Package from the passed file. 
         /// Can throw various exceptions
@@ -210,8 +222,9 @@ namespace CUE4Parse.FileProvider
         /// Asynchronously attempts to loads and parse a Package at the passed path. 
         /// </summary>
         /// <param name="path">The package file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The parsed package content if it could be parsed; default otherwise</returns>
-        public Task<IPackage?> TryLoadPackageAsync(string path);
+        public Task<IPackage?> TryLoadPackageAsync(string path, string? pakName = null);
         /// <summary>
         /// Asynchronously attempts to loads and parse a Package for the passed file. 
         /// </summary>
@@ -223,8 +236,9 @@ namespace CUE4Parse.FileProvider
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The package file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The package parts in a Dictionary with their name as keys</returns>
-        public IReadOnlyDictionary<string, byte[]> SavePackage(string path);
+        public IReadOnlyDictionary<string, byte[]> SavePackage(string path, string? pakName = null);
         /// <summary>
         /// Loads all parts of the Package in the passed file. 
         /// Can throw various exceptions
@@ -237,8 +251,9 @@ namespace CUE4Parse.FileProvider
         /// </summary>
         /// <param name="path">The package file path</param>
         /// <param name="package">The package parts in a Dictionary with their name as keys if successfully loaded; default otherwise</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>true if the package parts could be successfully loaded; false otherwise</returns>
-        public bool TrySavePackage(string path, out IReadOnlyDictionary<string, byte[]> package);
+        public bool TrySavePackage(string path, out IReadOnlyDictionary<string, byte[]> package, string? pakName = null);
         /// <summary>
         /// Attempts to load all parts of the Package in the passed file. 
         /// </summary>
@@ -251,8 +266,9 @@ namespace CUE4Parse.FileProvider
         /// Can throw various exceptions
         /// </summary>
         /// <param name="path">The package file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The package parts in a Dictionary with their name as keys</returns>
-        public Task<IReadOnlyDictionary<string, byte[]>> SavePackageAsync(string path);
+        public Task<IReadOnlyDictionary<string, byte[]>> SavePackageAsync(string path, string? pakName = null);
         /// <summary>
         /// Asynchronously loads all parts of the Package in the passed file. 
         /// Can throw various exceptions
@@ -264,8 +280,9 @@ namespace CUE4Parse.FileProvider
         /// Asynchronously attempts to load all parts of the Package at the passed path. 
         /// </summary>
         /// <param name="path">The package file path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The package parts in a Dictionary with their name as keys if successfully loaded; null otherwise</returns>
-        public Task<IReadOnlyDictionary<string, byte[]>?> TrySavePackageAsync(string path);
+        public Task<IReadOnlyDictionary<string, byte[]>?> TrySavePackageAsync(string path, string? pakName = null);
         /// <summary>
         /// Asynchronously attempts to load all parts of the Package in the passed file. 
         /// </summary>
@@ -277,58 +294,67 @@ namespace CUE4Parse.FileProvider
         /// Loads an object from the Package at the passed path
         /// </summary>
         /// <param name="objectPath">The object path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The loaded object</returns>
-        public UObject LoadObject(string? objectPath);
+        public UObject LoadObject(string? objectPath, string? pakName = null);
         /// <summary>
         /// Attempts to load an object from the Package at the passed path
         /// </summary>
         /// <param name="objectPath">The object path</param>
         /// <param name="export">The loaded object if loaded successfully; default otherwise</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>true if object was loaded; false otherwise</returns>
-        public bool TryLoadObject(string? objectPath, out UObject export);
+        public bool TryLoadObject(string? objectPath, out UObject export, string? pakName = null);
         /// <summary>
         /// Loads an object from the Package at the passed path with type T
         /// </summary>
         /// <param name="objectPath">The object path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The loaded object of type T</returns>
-        public T LoadObject<T>(string? objectPath) where T : UObject;
+        public T LoadObject<T>(string? objectPath, string? pakName = null) where T : UObject;
         /// <summary>
         /// Attempts to load an object from the Package at the passed path with type T
         /// </summary>
         /// <param name="objectPath">The object path</param>
         /// <param name="export">The loaded object if loaded successfully and of correct type; default otherwise</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>true if object was loaded and of correct type; false otherwise</returns>
-        public bool TryLoadObject<T>(string? objectPath, out T export) where T : UObject;
+        public bool TryLoadObject<T>(string? objectPath, out T export, string? pakName = null) where T : UObject;
         /// <summary>
         /// Asynchronously loads an object from the Package at the passed path
         /// </summary>
         /// <param name="objectPath">The object path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The loaded object</returns>
-        public Task<UObject> LoadObjectAsync(string? objectPath);
+        public Task<UObject> LoadObjectAsync(string? objectPath, string? pakName = null);
         /// <summary>
         /// Asynchronously attempts to load an object from the Package at the passed path
         /// </summary>
         /// <param name="objectPath">The object path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The loaded object if loaded successfully; null otherwise</returns>
-        public Task<UObject?> TryLoadObjectAsync(string? objectPath);
+        public Task<UObject?> TryLoadObjectAsync(string? objectPath, string? pakName = null);
         /// <summary>
         /// Asynchronously loads an object from the Package at the passed path with type T
         /// </summary>
         /// <param name="objectPath">The object path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The loaded object of type T</returns>
-        public Task<T> LoadObjectAsync<T>(string? objectPath) where T : UObject;
+        public Task<T> LoadObjectAsync<T>(string? objectPath, string? pakName = null) where T : UObject;
         /// <summary>
         /// Asynchronously attempts to load an object from the Package at the passed path with type T
         /// </summary>
         /// <param name="objectPath">The object path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>The loaded object if loaded successfully and of correct type; null otherwise</returns>
-        public Task<T?> TryLoadObjectAsync<T>(string? objectPath) where T : UObject;
-        
+        public Task<T?> TryLoadObjectAsync<T>(string? objectPath, string? pakName = null) where T : UObject;
+
         /// <summary>
         /// Loads an object from the Package at the passed path
         /// </summary>
         /// <param name="objectPath">The object path</param>
+        /// <param name="pakName">The name of the pak where the file is located; null if the location is not required</param>
         /// <returns>All exports of the object</returns>
-        public IEnumerable<UObject> LoadObjectExports(string? objectPath);
+        public IEnumerable<UObject> LoadObjectExports(string? objectPath, string? pakName = null);
     }
 }

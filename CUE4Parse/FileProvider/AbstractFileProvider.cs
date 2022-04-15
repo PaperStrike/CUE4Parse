@@ -13,6 +13,7 @@ using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Exceptions;
 using CUE4Parse.UE4.IO.Objects;
 using CUE4Parse.UE4.Localization;
+using CUE4Parse.UE4.Pak;
 using CUE4Parse.UE4.Pak.Objects;
 using CUE4Parse.UE4.Plugins;
 using CUE4Parse.UE4.Readers;
@@ -252,21 +253,71 @@ namespace CUE4Parse.FileProvider
 
         public virtual GameFile this[string path] => Files[FixPath(path)];
 
-        public virtual bool TryFindGameFile(string path, out GameFile file)
+        public virtual bool TryFindGameFile(string path, out GameFile file, string? pakName = null)
         {
             var uassetPath = FixPath(path);
-            if (Files.TryGetValue(uassetPath, out file))
+            if (TryGetGameFile(uassetPath, out file, pakName))
             {
                 return true;
             }
 
             var umapPath = uassetPath.SubstringBeforeWithLast('.') + GameFile.Ue4PackageExtensions[1];
-            if (Files.TryGetValue(umapPath, out file))
+            if (TryGetGameFile(umapPath, out file, pakName))
             {
                 return true;
             }
 
-            return Files.TryGetValue(IsCaseInsensitive ? path.ToLowerInvariant() : path, out file);
+            return TryGetGameFile(IsCaseInsensitive ? path.ToLowerInvariant() : path, out file, pakName);
+        }
+
+        public virtual bool TryGetGameFile(string path, out GameFile file, string? pakName = null)
+        {
+            try
+            {
+                file = GetGameFile(path, pakName);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                file = default;
+                return false;
+            }
+        }
+
+        public virtual GameFile GetGameFile(string path, string? pakName = null)
+        {
+            if (pakName == null)
+                return Files[path];
+
+            // Fallback to order when the file is not directly in the pak
+            FPakEntry? bestEntry = null;
+            int pakOrder = PakFileReader.GetReadOrder(pakName);
+
+            foreach (var (curPath, curFile) in Files)
+            {
+                if (!curPath.Equals(path, IsCaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                    continue;
+
+                if (curFile is FPakEntry curEntry)
+                {
+                    if (curEntry.PakFileReader.Name == pakName)
+                        return curFile;
+
+                    // Fallback to order
+                    var curOrder = curEntry.PakFileReader.ReadOrder;
+                    if (curOrder == pakOrder)
+                        return curFile;
+                    if (curOrder < pakOrder && (bestEntry == null || curOrder > bestEntry.PakFileReader.ReadOrder))
+                        bestEntry = curEntry;
+                }
+            }
+
+            if (bestEntry == null)
+            {
+                throw new InvalidOperationException($"There is no game file with the path \"{path}\" and the pak \"{pakName}\"");
+            }
+
+            return bestEntry;
         }
 
         public virtual string FixPath(string path) => FixPath(path, IsCaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
@@ -327,12 +378,12 @@ namespace CUE4Parse.FileProvider
         #region SaveAsset Methods
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual byte[] SaveAsset(string path) => this[path].Read();
+        public virtual byte[] SaveAsset(string path, string? pakName = null) => GetGameFile(FixPath(path), pakName).Read();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual bool TrySaveAsset(string path, out byte[] data)
+        public virtual bool TrySaveAsset(string path, out byte[] data, string? pakName = null)
         {
-            if (!TryFindGameFile(path, out var file))
+            if (!TryFindGameFile(path, out var file, pakName))
             {
                 data = default;
                 return false;
@@ -341,10 +392,10 @@ namespace CUE4Parse.FileProvider
             return file.TryRead(out data);
         }
 
-        public virtual async Task<byte[]> SaveAssetAsync(string path) => await Task.Run(() => SaveAsset(path));
-        public virtual async Task<byte[]?> TrySaveAssetAsync(string path) => await Task.Run(() =>
+        public virtual async Task<byte[]> SaveAssetAsync(string path, string? pakName = null) => await Task.Run(() => SaveAsset(path, pakName));
+        public virtual async Task<byte[]?> TrySaveAssetAsync(string path, string? pakName = null) => await Task.Run(() =>
         {
-            TrySaveAsset(path, out var data);
+            TrySaveAsset(path, out var data, pakName);
             return data;
         });
 
@@ -353,12 +404,12 @@ namespace CUE4Parse.FileProvider
         #region CreateReader Methods
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual FArchive CreateReader(string path) => this[path].CreateReader();
+        public virtual FArchive CreateReader(string path, string? pakName = null) => GetGameFile(FixPath(path), pakName).CreateReader();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual bool TryCreateReader(string path, out FArchive reader)
+        public virtual bool TryCreateReader(string path, out FArchive reader, string? pakName = null)
         {
-            if (!TryFindGameFile(path, out var file))
+            if (!TryFindGameFile(path, out var file, pakName))
             {
                 reader = default;
                 return false;
@@ -367,10 +418,10 @@ namespace CUE4Parse.FileProvider
             return file.TryCreateReader(out reader);
         }
 
-        public virtual async Task<FArchive> CreateReaderAsync(string path) => await Task.Run(() => CreateReader(path));
-        public virtual async Task<FArchive?> TryCreateReaderAsync(string path) => await Task.Run(() =>
+        public virtual async Task<FArchive> CreateReaderAsync(string path, string? pakName = null) => await Task.Run(() => CreateReader(path, pakName));
+        public virtual async Task<FArchive?> TryCreateReaderAsync(string path, string? pakName = null) => await Task.Run(() =>
         {
-            TryCreateReader(path, out var reader);
+            TryCreateReader(path, out var reader, pakName);
             return reader;
         });
 
@@ -379,7 +430,8 @@ namespace CUE4Parse.FileProvider
         #region LoadPackage Methods
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual IPackage LoadPackage(string path) => LoadPackage(this[path]);
+        public virtual IPackage LoadPackage(string path, string? pakName = null) =>
+            LoadPackage(GetGameFile(FixPath(path), pakName));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public virtual IPackage LoadPackage(GameFile file) => LoadPackageAsync(file).Result;
@@ -388,9 +440,9 @@ namespace CUE4Parse.FileProvider
         public virtual IoPackage LoadPackage(FPackageId id) => (IoPackage) LoadPackage(FilesById[id]);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual bool TryLoadPackage(string path, out IPackage package)
+        public virtual bool TryLoadPackage(string path, out IPackage package, string? pakName = null)
         {
-            if (!TryFindGameFile(path, out var file))
+            if (!TryFindGameFile(path, out var file, pakName))
             {
                 package = default;
                 return false;
@@ -420,13 +472,15 @@ namespace CUE4Parse.FileProvider
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual async Task<IPackage> LoadPackageAsync(string path) => await LoadPackageAsync(this[path]);
+        public virtual async Task<IPackage> LoadPackageAsync(string path, string? pakName = null) =>
+            await LoadPackageAsync(GetGameFile(FixPath(path), pakName));
         public virtual async Task<IPackage> LoadPackageAsync(GameFile file)
         {
             if (!file.IsUE4Package) throw new ArgumentException("File must be a package to be a loaded as one", nameof(file));
-            Files.TryGetValue(file.PathWithoutExtension + ".uexp", out var uexpFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".ubulk", out var ubulkFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".uptnl", out var uptnlFile);
+            var pakName = file is FPakEntry pakEntry ? pakEntry.PakFileReader.Name : null;
+            TryGetGameFile(file.PathWithoutExtension + ".uexp", out var uexpFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".ubulk", out var ubulkFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".uptnl", out var uptnlFile, pakName);
             var uassetTask = file.CreateReaderAsync();
             var uexpTask = uexpFile?.CreateReaderAsync();
             var ubulkTask = ubulkFile?.CreateReaderAsync();
@@ -450,9 +504,9 @@ namespace CUE4Parse.FileProvider
             return new IoPackage(uasset, vfsFileProvider.GlobalData, containerHeader, ubulk, uptnl, this, MappingsForThisGame);
         }
 
-        public virtual async Task<IPackage?> TryLoadPackageAsync(string path)
+        public virtual async Task<IPackage?> TryLoadPackageAsync(string path, string? pakName = null)
         {
-            if (!TryFindGameFile(path, out var file))
+            if (!TryFindGameFile(path, out var file, pakName))
             {
                 return null;
             }
@@ -464,9 +518,10 @@ namespace CUE4Parse.FileProvider
         {
             if (!file.IsUE4Package)
                 return null;
-            Files.TryGetValue(file.PathWithoutExtension + ".uexp", out var uexpFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".ubulk", out var ubulkFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".uptnl", out var uptnlFile);
+            var pakName = file is FPakEntry pakEntry ? pakEntry.PakFileReader.Name : null;
+            TryGetGameFile(file.PathWithoutExtension + ".uexp", out var uexpFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".ubulk", out var ubulkFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".uptnl", out var uptnlFile, pakName);
             var uassetTask = file.TryCreateReaderAsync().ConfigureAwait(false);
             var uexpTask = uexpFile?.TryCreateReaderAsync().ConfigureAwait(false);
             var lazyUbulk = ubulkFile != null ? new Lazy<FArchive?>(() => ubulkFile.TryCreateReader(out var reader) ? reader : null) : null;
@@ -502,13 +557,14 @@ namespace CUE4Parse.FileProvider
 
         #region SavePackage Methods
 
-        public virtual IReadOnlyDictionary<string, byte[]> SavePackage(string path) => SavePackage(this[path]);
+        public virtual IReadOnlyDictionary<string, byte[]> SavePackage(string path, string? pakName = null) =>
+            SavePackage(GetGameFile(FixPath(path), pakName));
 
         public virtual IReadOnlyDictionary<string, byte[]> SavePackage(GameFile file) => SavePackageAsync(file).Result;
 
-        public virtual bool TrySavePackage(string path, out IReadOnlyDictionary<string, byte[]> package)
+        public virtual bool TrySavePackage(string path, out IReadOnlyDictionary<string, byte[]> package, string? pakName = null)
         {
-            if (!TryFindGameFile(path, out var file))
+            if (!TryFindGameFile(path, out var file, pakName))
             {
                 package = default;
                 return false;
@@ -523,14 +579,15 @@ namespace CUE4Parse.FileProvider
             return package != null;
         }
 
-        public virtual async Task<IReadOnlyDictionary<string, byte[]>> SavePackageAsync(string path) =>
-            await SavePackageAsync(this[path]);
+        public virtual async Task<IReadOnlyDictionary<string, byte[]>> SavePackageAsync(string path, string? pakName = null) =>
+            await SavePackageAsync(GetGameFile(FixPath(path), pakName));
 
         public virtual async Task<IReadOnlyDictionary<string, byte[]>> SavePackageAsync(GameFile file)
         {
-            Files.TryGetValue(file.PathWithoutExtension + ".uexp", out var uexpFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".ubulk", out var ubulkFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".uptnl", out var uptnlFile);
+            var pakName = file is FPakEntry pakEntry ? pakEntry.PakFileReader.Name : null;
+            TryGetGameFile(file.PathWithoutExtension + ".uexp", out var uexpFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".ubulk", out var ubulkFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".uptnl", out var uptnlFile, pakName);
             var uassetTask = file.ReadAsync();
             var uexpTask = uexpFile?.ReadAsync();
             var ubulkTask = ubulkFile?.ReadAsync();
@@ -551,9 +608,9 @@ namespace CUE4Parse.FileProvider
             return dict;
         }
 
-        public virtual async Task<IReadOnlyDictionary<string, byte[]>?> TrySavePackageAsync(string path)
+        public virtual async Task<IReadOnlyDictionary<string, byte[]>?> TrySavePackageAsync(string path, string? pakName = null)
         {
-            if (!TryFindGameFile(path, out var file))
+            if (!TryFindGameFile(path, out var file, pakName))
             {
                 return null;
             }
@@ -563,9 +620,10 @@ namespace CUE4Parse.FileProvider
 
         public virtual async Task<IReadOnlyDictionary<string, byte[]>?> TrySavePackageAsync(GameFile file)
         {
-            Files.TryGetValue(file.PathWithoutExtension + ".uexp", out var uexpFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".ubulk", out var ubulkFile);
-            Files.TryGetValue(file.PathWithoutExtension + ".uptnl", out var uptnlFile);
+            var pakName = file is FPakEntry pakEntry ? pakEntry.PakFileReader.Name : null;
+            TryGetGameFile(file.PathWithoutExtension + ".uexp", out var uexpFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".ubulk", out var ubulkFile, pakName);
+            TryGetGameFile(file.PathWithoutExtension + ".uptnl", out var uptnlFile, pakName);
             var uassetTask = file.TryReadAsync().ConfigureAwait(false);
             var uexpTask = uexpFile?.TryReadAsync().ConfigureAwait(false);
             var ubulkTask = ubulkFile?.TryReadAsync().ConfigureAwait(false);
@@ -596,26 +654,26 @@ namespace CUE4Parse.FileProvider
         #region LoadObject Methods
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual UObject LoadObject(string? objectPath) => LoadObjectAsync(objectPath).Result;
+        public virtual UObject LoadObject(string? objectPath, string? pakName = null) => LoadObjectAsync(objectPath, pakName).Result;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual bool TryLoadObject(string? objectPath, out UObject export)
+        public virtual bool TryLoadObject(string? objectPath, out UObject export, string? pakName = null)
         {
-            export = TryLoadObjectAsync(objectPath).Result;
+            export = TryLoadObjectAsync(objectPath, pakName).Result;
             return export != null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual T LoadObject<T>(string? objectPath) where T : UObject => LoadObjectAsync<T>(objectPath).Result;
+        public virtual T LoadObject<T>(string? objectPath, string? pakName = null) where T : UObject => LoadObjectAsync<T>(objectPath, pakName).Result;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual bool TryLoadObject<T>(string? objectPath, out T export) where T : UObject
+        public virtual bool TryLoadObject<T>(string? objectPath, out T export, string? pakName = null) where T : UObject
         {
-            export = TryLoadObjectAsync<T>(objectPath).Result;
+            export = TryLoadObjectAsync<T>(objectPath, pakName).Result;
             return export != null;
         }
 
-        public virtual async Task<UObject> LoadObjectAsync(string? objectPath)
+        public virtual async Task<UObject> LoadObjectAsync(string? objectPath, string? pakName = null)
         {
             if (objectPath == null) throw new ArgumentException("ObjectPath can't be null", nameof(objectPath));
             var packagePath = objectPath;
@@ -631,11 +689,11 @@ namespace CUE4Parse.FileProvider
                 packagePath = packagePath.Substring(0, dotIndex);
             }
 
-            var pkg = await LoadPackageAsync(packagePath);
+            var pkg = await LoadPackageAsync(packagePath, pakName);
             return pkg.GetExport(objectName, IsCaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
 
-        public virtual async Task<UObject?> TryLoadObjectAsync(string? objectPath)
+        public virtual async Task<UObject?> TryLoadObjectAsync(string? objectPath, string? pakName = null)
         {
             if (objectPath == null || objectPath.Equals("None", IsCaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)) return null;
             var packagePath = objectPath;
@@ -651,25 +709,25 @@ namespace CUE4Parse.FileProvider
                 packagePath = packagePath.Substring(0, dotIndex);
             }
 
-            var pkg = await TryLoadPackageAsync(packagePath).ConfigureAwait(false);
+            var pkg = await TryLoadPackageAsync(packagePath, pakName).ConfigureAwait(false);
             return pkg?.GetExportOrNull(objectName, IsCaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual async Task<T> LoadObjectAsync<T>(string? objectPath) where T : UObject =>
-            await LoadObjectAsync(objectPath) as T ??
+        public virtual async Task<T> LoadObjectAsync<T>(string? objectPath, string? pakName = null) where T : UObject =>
+            await LoadObjectAsync(objectPath, pakName) as T ??
             throw new ParserException("Loaded object but it was of wrong type");
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual async Task<T?> TryLoadObjectAsync<T>(string? objectPath) where T : UObject =>
-            await TryLoadObjectAsync(objectPath) as T;
+        public virtual async Task<T?> TryLoadObjectAsync<T>(string? objectPath, string? pakName = null) where T : UObject =>
+            await TryLoadObjectAsync(objectPath, pakName) as T;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public virtual IEnumerable<UObject> LoadObjectExports(string? objectPath)
+        public virtual IEnumerable<UObject> LoadObjectExports(string? objectPath, string? pakName = null)
         {
             if (objectPath == null) throw new ArgumentException("ObjectPath can't be null", nameof(objectPath));
 
-            var pkg = LoadPackage(objectPath);
+            var pkg = LoadPackage(objectPath, pakName);
             return pkg.GetExports();
         }
 
